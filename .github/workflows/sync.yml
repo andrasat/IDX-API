@@ -30,7 +30,19 @@ jobs:
           HOST: ${{ secrets.HOST }}
           USERNAME: ${{ secrets.USERNAME }}
 
+      - name: Debug SSH
+        run: |
+          echo "--- SSH config ---"
+          cat $HOME/.ssh/config
+          echo "--- Key perms ---"
+          ls -la $HOME/.ssh/id_ed25519
+          echo "--- Key fingerprint ---"
+          ssh-keygen -lf $HOME/.ssh/id_ed25519
+          echo "--- Test connect (verbose) ---"
+          ssh -vvv -o ConnectTimeout=5 vps "echo OK" 2>&1 | tail -30
+
       - name: Clone or update IDX-API on VPS
+        if: success()
         run: |
           ssh vps "
             if [ -d /root/IDX-API ]; then
