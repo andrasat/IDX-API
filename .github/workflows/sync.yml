@@ -1,0 +1,90 @@
+name: IDX Data Sync
+run-name: ${{ github.actor }} syncing IDX data...
+on:
+  schedule:
+    - cron: '30 9 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      tier:
+        description: 'Sync tier'
+        required: true
+        type: choice
+        default: 'daily'
+        options:
+          - daily
+          - weekly
+          - monthly
+          - full
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup SSH
+        run: bash scripts/setup_ssh.sh
+        env:
+          KEY: ${{ secrets.KEY }}
+          HOST: ${{ secrets.HOST }}
+
+      - name: Check SSH
+        run: test -e $HOME/.ssh/id_rsa && echo "SSH OK" || exit 1
+
+      - name: Setup Doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Clone or update IDX-API on VPS
+        run: |
+          doctl compute ssh $DROPLET_NAME --ssh-command "
+            if [ -d /root/IDX-API ]; then
+              cd /root/IDX-API && git pull origin main
+            else
+              git clone https://github.com/andrasat/IDX-API.git /root/IDX-API
+            fi
+          "
+        env:
+          DROPLET_NAME: ${{ secrets.DROPLET_NAME }}
+
+      - name: Determine sync tier
+        id: tier
+        run: |
+          if [ "${{ github.event.inputs.tier }}" != "" ]; then
+            echo "tier=${{ github.event.inputs.tier }}" >> $GITHUB_OUTPUT
+          elif [ "$(date +%u)" = "0" ]; then
+            echo "tier=weekly" >> $GITHUB_OUTPUT
+          elif [ "$(date +%-d)" = "2" ]; then
+            echo "tier=monthly" >> $GITHUB_OUTPUT
+          else
+            echo "tier=daily" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run daily sync
+        if: steps.tier.outputs.tier == 'daily' || steps.tier.outputs.tier == 'weekly' || steps.tier.outputs.tier == 'monthly' || steps.tier.outputs.tier == 'full'
+        run: |
+          doctl compute ssh $DROPLET_NAME --ssh-command "
+            cd /root/IDX-API && deno run -A src/Backend/Sync/scheduled_daily.ts $(date +%Y%m%d -d '1 day ago')
+          "
+        env:
+          DROPLET_NAME: ${{ secrets.DROPLET_NAME }}
+
+      - name: Run weekly sync
+        if: steps.tier.outputs.tier == 'weekly' || steps.tier.outputs.tier == 'full'
+        run: |
+          doctl compute ssh $DROPLET_NAME --ssh-command "
+            cd /root/IDX-API && deno run -A src/Backend/Sync/scheduled_weekly.ts
+          "
+        env:
+          DROPLET_NAME: ${{ secrets.DROPLET_NAME }}
+
+      - name: Run monthly sync
+        if: steps.tier.outputs.tier == 'monthly' || steps.tier.outputs.tier == 'full'
+        run: |
+          doctl compute ssh $DROPLET_NAME --ssh-command "
+            cd /root/IDX-API && deno run -A src/Backend/Sync/scheduled_monthly.ts $(date +%Y -d 'last month') $(date +%-m -d 'last month')
+          "
+        env:
+          DROPLET_NAME: ${{ secrets.DROPLET_NAME }}
