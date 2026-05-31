@@ -30,26 +30,15 @@ jobs:
           HOST: ${{ secrets.HOST }}
           USERNAME: ${{ secrets.USERNAME }}
 
-      - name: Test plain SSH
-        run: ssh vps "echo SSH_OK"
-
-      - name: Setup Doctl
-        uses: digitalocean/action-doctl@v2
-        with:
-          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
-
       - name: Clone or update IDX-API on VPS
         run: |
-          doctl compute ssh $DROPLET_NAME --ssh-user $USERNAME --ssh-command "
+          ssh vps "
             if [ -d /root/IDX-API ]; then
               cd /root/IDX-API && git pull origin main
             else
               git clone https://github.com/andrasat/IDX-API.git /root/IDX-API
             fi
           "
-        env:
-          DROPLET_NAME: ${{ secrets.DROPLET_NAME }}
-          USERNAME: ${{ secrets.USERNAME }}
 
       - name: Determine sync tier
         id: tier
@@ -67,29 +56,14 @@ jobs:
       - name: Run daily sync
         if: steps.tier.outputs.tier == 'daily' || steps.tier.outputs.tier == 'weekly' || steps.tier.outputs.tier == 'monthly' || steps.tier.outputs.tier == 'full'
         run: |
-          doctl compute ssh $DROPLET_NAME --ssh-user $USERNAME --ssh-command "
-            cd /root/IDX-API && deno run -A src/Backend/Sync/scheduled_daily.ts $(date +%Y%m%d -d '1 day ago')
-          "
-        env:
-          DROPLET_NAME: ${{ secrets.DROPLET_NAME }}
-          USERNAME: ${{ secrets.USERNAME }}
+          ssh vps "cd /root/IDX-API && deno run -A src/Backend/Sync/scheduled_daily.ts \$(date +%Y%m%d -d '1 day ago')"
 
       - name: Run weekly sync
         if: steps.tier.outputs.tier == 'weekly' || steps.tier.outputs.tier == 'full'
         run: |
-          doctl compute ssh $DROPLET_NAME --ssh-user $USERNAME --ssh-command "
-            cd /root/IDX-API && deno run -A src/Backend/Sync/scheduled_weekly.ts
-          "
-        env:
-          DROPLET_NAME: ${{ secrets.DROPLET_NAME }}
-          USERNAME: ${{ secrets.USERNAME }}
+          ssh vps "cd /root/IDX-API && deno run -A src/Backend/Sync/scheduled_weekly.ts"
 
       - name: Run monthly sync
         if: steps.tier.outputs.tier == 'monthly' || steps.tier.outputs.tier == 'full'
         run: |
-          doctl compute ssh $DROPLET_NAME --ssh-user $USERNAME --ssh-command "
-            cd /root/IDX-API && deno run -A src/Backend/Sync/scheduled_monthly.ts $(date +%Y -d 'last month') $(date +%-m -d 'last month')
-          "
-        env:
-          DROPLET_NAME: ${{ secrets.DROPLET_NAME }}
-          USERNAME: ${{ secrets.USERNAME }}
+          ssh vps "cd /root/IDX-API && deno run -A src/Backend/Sync/scheduled_monthly.ts \$(date +%Y -d 'last month') \$(date +%-m -d 'last month')"
