@@ -35,5 +35,6 @@ jobs:
           "
 
       - name: Run sync
+        timeout-minutes: 120
         run: |
           ssh vps "export PATH=\$HOME/.deno/bin:\$PATH && cd /root/IDX-API && deno run -A src/Backend/Sync/scheduled_daily.ts"
