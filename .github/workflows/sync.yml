@@ -24,11 +24,16 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Setup SSH
-        run: bash scripts/setup_ssh.sh
+        run: |
+          bash scripts/setup_ssh.sh
+          if [ -S /tmp/ssh-agent.sock ]; then
+            echo "SSH_AUTH_SOCK=/tmp/ssh-agent.sock" >> $GITHUB_ENV
+          fi
         env:
           KEY: ${{ secrets.KEY }}
           HOST: ${{ secrets.HOST }}
           USERNAME: ${{ secrets.USERNAME }}
+          SSH_PASSPHRASE: ${{ secrets.SSH_PASSPHRASE }}
 
       - name: Debug SSH
         run: |
@@ -38,8 +43,12 @@ jobs:
           ls -la $HOME/.ssh/id_ed25519
           echo "--- Key fingerprint ---"
           ssh-keygen -lf $HOME/.ssh/id_ed25519
-          echo "--- Test connect (verbose) ---"
-          ssh -vvv -o ConnectTimeout=5 vps "echo OK" 2>&1 | tail -30
+          echo "--- SSH agent ---"
+          ssh-add -l 2>&1 || echo "(no agent or no keys loaded)"
+          echo "--- Agent sock ---"
+          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK"
+          echo "--- Test connect ---"
+          ssh -o ConnectTimeout=5 vps "echo OK" 2>&1
 
       - name: Clone or update IDX-API on VPS
         if: success()

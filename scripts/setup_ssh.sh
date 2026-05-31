@@ -13,3 +13,11 @@ Host vps
   StrictHostKeyChecking accept-new
 EOF
 chmod 600 $HOME/.ssh/config
+
+if [ -n "$SSH_PASSPHRASE" ]; then
+  eval $(ssh-agent -a /tmp/ssh-agent.sock)
+  echo '#!/bin/bash' > /tmp/askpass.sh
+  echo 'echo "$SSH_PASSPHRASE"' >> /tmp/askpass.sh
+  chmod +x /tmp/askpass.sh
+  SSH_ASKPASS=/tmp/askpass.sh DISPLAY= ssh-add $HOME/.ssh/id_ed25519 < /dev/null
+fi
