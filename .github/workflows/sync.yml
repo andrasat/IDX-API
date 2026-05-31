@@ -73,14 +73,14 @@ jobs:
       - name: Run daily sync
         if: steps.tier.outputs.tier == 'daily' || steps.tier.outputs.tier == 'weekly' || steps.tier.outputs.tier == 'monthly' || steps.tier.outputs.tier == 'full'
         run: |
-          ssh vps "cd /root/IDX-API && deno run -A src/Backend/Sync/scheduled_daily.ts \$(date +%Y%m%d -d '1 day ago')"
+          ssh vps "export PATH=\$HOME/.deno/bin:\$PATH && cd /root/IDX-API && deno run -A src/Backend/Sync/scheduled_daily.ts \$(date +%Y%m%d -d '1 day ago')"
 
       - name: Run weekly sync
         if: steps.tier.outputs.tier == 'weekly' || steps.tier.outputs.tier == 'full'
         run: |
-          ssh vps "cd /root/IDX-API && deno run -A src/Backend/Sync/scheduled_weekly.ts"
+          ssh vps "export PATH=\$HOME/.deno/bin:\$PATH && cd /root/IDX-API && deno run -A src/Backend/Sync/scheduled_weekly.ts"
 
       - name: Run monthly sync
         if: steps.tier.outputs.tier == 'monthly' || steps.tier.outputs.tier == 'full'
         run: |
-          ssh vps "cd /root/IDX-API && deno run -A src/Backend/Sync/scheduled_monthly.ts \$(date +%Y -d 'last month') \$(date +%-m -d 'last month')"
+          ssh vps "export PATH=\$HOME/.deno/bin:\$PATH && cd /root/IDX-API && deno run -A src/Backend/Sync/scheduled_monthly.ts \$(date +%Y -d 'last month') \$(date +%-m -d 'last month')"
