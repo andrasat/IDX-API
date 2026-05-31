@@ -28,12 +28,10 @@ jobs:
         env:
           KEY: ${{ secrets.KEY }}
           HOST: ${{ secrets.HOST }}
+          USERNAME: ${{ secrets.USERNAME }}
 
       - name: Test plain SSH
-        run: ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new $USERNAME@$HOST "echo SSH_OK"
-        env:
-          HOST: ${{ secrets.HOST }}
-          USERNAME: ${{ secrets.USERNAME }}
+        run: ssh vps "echo SSH_OK"
 
       - name: Setup Doctl
         uses: digitalocean/action-doctl@v2
