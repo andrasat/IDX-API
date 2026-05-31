@@ -47,13 +47,17 @@ jobs:
           ssh -o ConnectTimeout=5 vps "echo OK" 2>&1
 
       - name: Clone or update IDX-API on VPS
-        if: success()
         run: |
           ssh vps "
             if [ -d /root/IDX-API ]; then
               cd /root/IDX-API && git pull origin main
             else
               git clone https://github.com/andrasat/IDX-API.git /root/IDX-API
+            fi
+            if [ ! -f /root/IDX-API/data/database.sqlite ]; then
+              echo 'WARNING: Database not found. Copy your local DB:'
+              echo '  scp data/database.sqlite root@vps:/root/IDX-API/data/'
+              exit 1
             fi
           "
 
