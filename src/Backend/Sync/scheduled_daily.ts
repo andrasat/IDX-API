@@ -15,22 +15,25 @@ function daysAgo(n: number): string {
   return formatDate(d)
 }
 
-async function run(name: string, fn: () => Promise<void>) {
-  Logger.info(`[Sync] ${name}...`)
-  try {
-    await fn()
-  } catch (e) {
-    Logger.error(`[Sync] ${name} failed:`, e instanceof Error ? e.message : String(e))
-  }
-}
-
 async function main() {
+  const today = new Date()
+  const isMonthly = Deno.args.includes('--monthly') || today.getDate() === 2
+
+  async function run(name: string, fn: () => Promise<void>) {
+    Logger.info(`[Sync] ${name}...`)
+    try {
+      await fn()
+    } catch (e) {
+      Logger.error(`[Sync] ${name} failed:`, e instanceof Error ? e.message : String(e))
+    }
+  }
+
   const dates: string[] = []
   for (let i = 1; i <= DAYS_TO_SYNC; i++) {
     dates.push(daysAgo(i))
   }
-  Logger.info(`[Sync] === Daily data (last ${DAYS_TO_SYNC} days: ${dates.join(', ')}) ===`)
 
+  Logger.info(`[Sync] === Daily data (last ${DAYS_TO_SYNC} days) ===`)
   await run('syncTradeSummary', Sync.syncTradeSummary)
   await run('syncIndexList', Sync.syncIndexList)
   await run('syncCompanySuspend', Sync.syncCompanySuspend)
@@ -54,12 +57,35 @@ async function main() {
 
   Logger.info('[Sync] === Per-company data ===')
   const companies = await Database.select({ code: schemas.companyProfile.code }).from(schemas.companyProfile)
-
   for (let i = 0; i < companies.length; i++) {
     const code = companies[i]?.code
     if (!code) continue
     Logger.info(`[Sync] ${i + 1}/${companies.length}: ${code}`)
     await run(`syncTradingDaily(${code})`, () => Sync.syncTradingDaily(code))
+  }
+
+  if (isMonthly) {
+    const y = today.getMonth() === 0 ? today.getFullYear() - 1 : today.getFullYear()
+    const m = today.getMonth() === 0 ? 12 : today.getMonth()
+    Logger.info(`[Sync] === Monthly data (${y}-${m}) ===`)
+    await run('syncDailyIndex', () => Sync.syncDailyIndex(y, m))
+    await run('syncForeignTrading', () => Sync.syncForeignTrading(y, m))
+    await run('syncDomesticTrading', () => Sync.syncDomesticTrading(y, m))
+    await run('syncFinancialRatio', () => Sync.syncFinancialRatio(y, m))
+    await run('syncTopGainer', () => Sync.syncTopGainer(y, m))
+    await run('syncTopLoser', () => Sync.syncTopLoser(y, m))
+    await run('syncIndustryTrading', () => Sync.syncIndustryTrading(y, m))
+    await run('syncSectoralMovement', () => Sync.syncSectoralMovement(y, m))
+    await run('syncActiveVolume', () => Sync.syncActiveVolume(y, m))
+    await run('syncActiveFrequency', () => Sync.syncActiveFrequency(y, m))
+    await run('syncActiveValue', () => Sync.syncActiveValue(y, m))
+    await run('syncAdditionalListing', () => Sync.syncAdditionalListing(y, m))
+    await run('syncCompanyDelisting', () => Sync.syncCompanyDelisting(y, m))
+    await run('syncCompanyDividend', () => Sync.syncCompanyDividend(y, m))
+    await run('syncNewListing', () => Sync.syncNewListing(y, m))
+    await run('syncRightOffering', () => Sync.syncRightOffering(y, m))
+    await run('syncStockSplit', () => Sync.syncStockSplit(y, m))
+    Logger.info('[Sync] Monthly data complete.')
   }
 
   Logger.info('[Sync] Complete.')

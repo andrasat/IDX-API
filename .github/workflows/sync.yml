@@ -4,16 +4,6 @@ on:
   schedule:
     - cron: '0 10 * * 1'
   workflow_dispatch:
-    inputs:
-      tier:
-        description: 'Sync tier'
-        required: true
-        type: choice
-        default: 'daily'
-        options:
-          - daily
-          - monthly
-          - full
 
 jobs:
   sync:
@@ -30,14 +20,6 @@ jobs:
           USERNAME: ${{ secrets.USERNAME }}
           SSH_PASSPHRASE: ${{ secrets.SSH_PASSPHRASE }}
 
-      - name: Debug SSH
-        run: |
-          echo "--- SSH config ---"
-          cat $HOME/.ssh/config
-          echo "--- Key fingerprint ---"
-          ssh-keygen -lf $HOME/.ssh/id_ed25519
-          ssh -o ConnectTimeout=5 vps "echo SSH_OK" 2>&1
-
       - name: Clone or update IDX-API on VPS
         run: |
           ssh vps "
@@ -52,22 +34,6 @@ jobs:
             fi
           "
 
-      - name: Determine sync tier
-        id: tier
-        run: |
-          if [ "${{ github.event.inputs.tier }}" != "" ]; then
-            echo "tier=${{ github.event.inputs.tier }}" >> $GITHUB_OUTPUT
-          elif [ "$(date +%-d)" = "2" ]; then
-            echo "tier=monthly" >> $GITHUB_OUTPUT
-          else
-            echo "tier=daily" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Run daily sync (last 7 days)
+      - name: Run sync
         run: |
           ssh vps "export PATH=\$HOME/.deno/bin:\$PATH && cd /root/IDX-API && deno run -A src/Backend/Sync/scheduled_daily.ts"
-
-      - name: Run monthly sync
-        if: steps.tier.outputs.tier == 'monthly' || steps.tier.outputs.tier == 'full'
-        run: |
-          ssh vps "export PATH=\$HOME/.deno/bin:\$PATH && cd /root/IDX-API && deno run -A src/Backend/Sync/scheduled_monthly.ts \$(date +%Y -d 'last month') \$(date +%-m -d 'last month')"
