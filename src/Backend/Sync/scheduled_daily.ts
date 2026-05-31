@@ -1,3 +1,5 @@
+import Database from '@app/Database.ts'
+import * as schemas from '@app/Backend/Schemas/index.ts'
 import * as Sync from '@app/Backend/Sync/index.ts'
 import Logger from '@app/Logger.ts'
 
@@ -14,11 +16,11 @@ function daysAgo(n: number): string {
 }
 
 async function run(name: string, fn: () => Promise<void>) {
-  Logger.info(`[Daily] ${name}...`)
+  Logger.info(`[Sync] ${name}...`)
   try {
     await fn()
   } catch (e) {
-    Logger.error(`[Daily] ${name} failed:`, e instanceof Error ? e.message : String(e))
+    Logger.error(`[Sync] ${name} failed:`, e instanceof Error ? e.message : String(e))
   }
 }
 
@@ -27,7 +29,7 @@ async function main() {
   for (let i = 1; i <= DAYS_TO_SYNC; i++) {
     dates.push(daysAgo(i))
   }
-  Logger.info(`[Daily] Syncing last ${DAYS_TO_SYNC} days: ${dates.join(', ')}`)
+  Logger.info(`[Sync] === Daily data (last ${DAYS_TO_SYNC} days: ${dates.join(', ')}) ===`)
 
   await run('syncTradeSummary', Sync.syncTradeSummary)
   await run('syncIndexList', Sync.syncIndexList)
@@ -42,7 +44,25 @@ async function main() {
     await run(`syncMarketCalendar(${dateStr})`, () => Sync.syncMarketCalendar(dateStr))
   }
 
-  Logger.info('[Daily] Sync complete.')
+  Logger.info('[Sync] === Reference data ===')
+  await run('syncCompanyProfile', Sync.syncCompanyProfile)
+  await run('syncSecurityStock', Sync.syncSecurityStock)
+  await run('syncCompanyRelisting', Sync.syncCompanyRelisting)
+  await run('syncBrokerParticipant', Sync.syncBrokerParticipant)
+  await run('syncDealerParticipant', Sync.syncDealerParticipant)
+  await run('syncProfileParticipant', Sync.syncProfileParticipant)
+
+  Logger.info('[Sync] === Per-company data ===')
+  const companies = await Database.select({ code: schemas.companyProfile.code }).from(schemas.companyProfile)
+
+  for (let i = 0; i < companies.length; i++) {
+    const code = companies[i]?.code
+    if (!code) continue
+    Logger.info(`[Sync] ${i + 1}/${companies.length}: ${code}`)
+    await run(`syncTradingDaily(${code})`, () => Sync.syncTradingDaily(code))
+  }
+
+  Logger.info('[Sync] Complete.')
 }
 
 main()
