@@ -2,7 +2,7 @@ name: IDX Data Sync
 run-name: ${{ github.actor }} syncing IDX data...
 on:
   schedule:
-    - cron: '30 9 * * 1-5'
+    - cron: '0 10 * * 1'
   workflow_dispatch:
     inputs:
       tier:
@@ -12,7 +12,6 @@ on:
         default: 'daily'
         options:
           - daily
-          - weekly
           - monthly
           - full
 
@@ -35,16 +34,9 @@ jobs:
         run: |
           echo "--- SSH config ---"
           cat $HOME/.ssh/config
-          echo "--- Key perms ---"
-          ls -la $HOME/.ssh/id_ed25519
           echo "--- Key fingerprint ---"
           ssh-keygen -lf $HOME/.ssh/id_ed25519
-          echo "--- SSH agent ---"
-          ssh-add -l 2>&1 || echo "(no agent or no keys loaded)"
-          echo "--- Agent sock ---"
-          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK"
-          echo "--- Test connect ---"
-          ssh -o ConnectTimeout=5 vps "echo OK" 2>&1
+          ssh -o ConnectTimeout=5 vps "echo SSH_OK" 2>&1
 
       - name: Clone or update IDX-API on VPS
         run: |
@@ -55,8 +47,7 @@ jobs:
               git clone https://github.com/andrasat/IDX-API.git /root/IDX-API
             fi
             if [ ! -f /root/IDX-API/data/database.sqlite ]; then
-              echo 'WARNING: Database not found. Copy your local DB:'
-              echo '  scp data/database.sqlite root@vps:/root/IDX-API/data/'
+              echo 'WARNING: Database not found. Copy: scp data/database.sqlite root@vps:/root/IDX-API/data/'
               exit 1
             fi
           "
@@ -66,23 +57,15 @@ jobs:
         run: |
           if [ "${{ github.event.inputs.tier }}" != "" ]; then
             echo "tier=${{ github.event.inputs.tier }}" >> $GITHUB_OUTPUT
-          elif [ "$(date +%u)" = "0" ]; then
-            echo "tier=weekly" >> $GITHUB_OUTPUT
           elif [ "$(date +%-d)" = "2" ]; then
             echo "tier=monthly" >> $GITHUB_OUTPUT
           else
             echo "tier=daily" >> $GITHUB_OUTPUT
           fi
 
-      - name: Run daily sync
-        if: steps.tier.outputs.tier == 'daily' || steps.tier.outputs.tier == 'weekly' || steps.tier.outputs.tier == 'monthly' || steps.tier.outputs.tier == 'full'
+      - name: Run daily sync (last 7 days)
         run: |
-          ssh vps "export PATH=\$HOME/.deno/bin:\$PATH && cd /root/IDX-API && deno run -A src/Backend/Sync/scheduled_daily.ts \$(date +%Y%m%d -d '1 day ago')"
-
-      - name: Run weekly sync
-        if: steps.tier.outputs.tier == 'weekly' || steps.tier.outputs.tier == 'full'
-        run: |
-          ssh vps "export PATH=\$HOME/.deno/bin:\$PATH && cd /root/IDX-API && deno run -A src/Backend/Sync/scheduled_weekly.ts"
+          ssh vps "export PATH=\$HOME/.deno/bin:\$PATH && cd /root/IDX-API && deno run -A src/Backend/Sync/scheduled_daily.ts"
 
       - name: Run monthly sync
         if: steps.tier.outputs.tier == 'monthly' || steps.tier.outputs.tier == 'full'
