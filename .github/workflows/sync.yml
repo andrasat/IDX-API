@@ -56,4 +56,4 @@ jobs:
       - name: Run sync
         timeout-minutes: 120
         run: |
-          ssh vps "export PATH=\$HOME/.deno/bin:\$PATH && cd \$HOME/IDX-API && deno run --allow-net --allow-read --allow-write src/Backend/Sync/scheduled_daily.ts"
+          ssh vps "export PATH=\$HOME/.deno/bin:\$PATH && cd \$HOME/IDX-API && deno run --allow-net --allow-read --allow-write --allow-env --allow-sys --allow-ffi src/Backend/Sync/scheduled_daily.ts"
