@@ -13,5 +13,22 @@ node_modules/
 .DS_Store
 Thumbs.db
 
+# Environment
+.env
+.env.*
+!.env.example
+
+# Keys & certificates
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+
+# Secrets
+secrets.*
+credentials.*
+*.log
+
 # Local
 data/

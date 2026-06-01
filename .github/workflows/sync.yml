@@ -5,12 +5,15 @@ on:
     - cron: '0 10 * * 1'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Setup SSH
         run: bash scripts/setup_ssh.sh
@@ -19,17 +22,18 @@ jobs:
           HOST: ${{ secrets.HOST }}
           USERNAME: ${{ secrets.USERNAME }}
           SSH_PASSPHRASE: ${{ secrets.SSH_PASSPHRASE }}
+          SSH_HOST_KEY: ${{ secrets.SSH_HOST_KEY }}
 
       - name: Clone or update IDX-API on VPS
         run: |
           ssh vps "
-            if [ -d /root/IDX-API ]; then
-              cd /root/IDX-API && git pull origin main
+            if [ -d \$HOME/IDX-API ]; then
+              cd \$HOME/IDX-API && git pull origin main
             else
-              git clone https://github.com/andrasat/IDX-API.git /root/IDX-API
+              git clone https://github.com/${{ github.repository }}.git \$HOME/IDX-API
             fi
-            if [ ! -f /root/IDX-API/data/database.sqlite ]; then
-              echo 'WARNING: Database not found. Copy: scp data/database.sqlite root@vps:/root/IDX-API/data/'
+            if [ ! -f \$HOME/IDX-API/data/database.sqlite ]; then
+              echo 'WARNING: Database not found at \$HOME/IDX-API/data/database.sqlite'
               exit 1
             fi
           "
@@ -37,4 +41,4 @@ jobs:
       - name: Run sync
         timeout-minutes: 120
         run: |
-          ssh vps "export PATH=\$HOME/.deno/bin:\$PATH && cd /root/IDX-API && deno run -A src/Backend/Sync/scheduled_daily.ts"
+          ssh vps "export PATH=\$HOME/.deno/bin:\$PATH && cd \$HOME/IDX-API && deno run --allow-net --allow-read --allow-write src/Backend/Sync/scheduled_daily.ts"
