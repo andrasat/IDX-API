@@ -27,7 +27,22 @@ jobs:
       - name: Clone or update IDX-API on VPS
         run: |
           ssh vps "
-            if [ -d \$HOME/IDX-API ]; then
+            # One-time fix for accidental nested clone
+            if [ -d \$HOME/IDX-API/IDX-API/.git ] && [ ! -d \$HOME/IDX-API/.git ]; then
+              echo 'Fixing nested clone...'
+              if [ -f \$HOME/IDX-API/IDX-API/data/database.sqlite ]; then
+                cp \$HOME/IDX-API/IDX-API/data/database.sqlite /tmp/db_bak.sqlite
+              fi
+              mv \$HOME/IDX-API/IDX-API/.git \$HOME/IDX-API/.git
+              rm -rf \$HOME/IDX-API/IDX-API
+              cd \$HOME/IDX-API && git checkout main && git reset --hard HEAD
+              if [ -f /tmp/db_bak.sqlite ]; then
+                mkdir -p \$HOME/IDX-API/data
+                mv /tmp/db_bak.sqlite \$HOME/IDX-API/data/database.sqlite
+              fi
+            fi
+
+            if [ -d \$HOME/IDX-API/.git ]; then
               cd \$HOME/IDX-API && git pull origin main
             else
               git clone https://github.com/${{ github.repository }}.git \$HOME/IDX-API
