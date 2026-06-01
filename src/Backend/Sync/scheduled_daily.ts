@@ -4,7 +4,7 @@ import * as Sync from '@app/Backend/Sync/index.ts'
 import Logger from '@app/Logger.ts'
 
 const DAYS_TO_SYNC = 7
-const STATE_FILE = import.meta.dirname + '/../../data/.sync_state.json'
+const STATE_FILE = import.meta.dirname + '/../../../data/.sync_state.json'
 
 type Phase = 'daily' | 'reference' | 'per_company' | 'monthly' | 'done'
 
@@ -150,6 +150,17 @@ async function main() {
     await run('syncAdditionalListing', () => Sync.syncAdditionalListing(y, m))
     await run('syncCompanyDelisting', () => Sync.syncCompanyDelisting(y, m))
     await run('syncCompanyDividend', () => Sync.syncCompanyDividend(y, m))
+    // Sync dividends for a wider window (6 months back + 6 forward)
+    for (let i = 1; i <= 6; i++) {
+      const backD = new Date(y, m - 1 - i, 1)
+      await run(`syncCompanyDividend(${backD.getFullYear()}-${backD.getMonth() + 1})`, () =>
+        Sync.syncCompanyDividend(backD.getFullYear(), backD.getMonth() + 1)
+      )
+      const fwdD = new Date(y, m - 1 + i, 1)
+      await run(`syncCompanyDividend(${fwdD.getFullYear()}-${fwdD.getMonth() + 1})`, () =>
+        Sync.syncCompanyDividend(fwdD.getFullYear(), fwdD.getMonth() + 1)
+      )
+    }
     await run('syncNewListing', () => Sync.syncNewListing(y, m))
     await run('syncRightOffering', () => Sync.syncRightOffering(y, m))
     await run('syncStockSplit', () => Sync.syncStockSplit(y, m))
