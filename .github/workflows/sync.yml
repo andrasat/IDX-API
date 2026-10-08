@@ -1,8 +1,8 @@
 name: IDX Data Sync
 run-name: ${{ github.actor }} syncing IDX data...
 on:
-  schedule:
-    - cron: '0 10 * * 1'
+  #schedule:
+  #  - cron: '0 10 * * 1'
   workflow_dispatch:
 
 permissions:
